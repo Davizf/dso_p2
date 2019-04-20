@@ -23,8 +23,6 @@ char iNodoNames[MAX_NUMBER_FILES][MAX_NAME_LENGHT];
 #define CLOSED 0
 #define OPENED 1
 #define DATA_BLOCKS_START 2
-#define FSCLEAN 0
-#define FSACTIVE 1
 
 /*************************************** End Student Code ***************************************/
 
@@ -113,7 +111,7 @@ int createFile(char *path)
 	}
 
 	// Máscara con la ultima posición a 1.
-	uint64_t mask = 0x0000000000000001;
+	uint64_t mask = 1;
 	//Se crea una copia del mapa de inodos, ya que va a ser modificado
 	uint64_t iNodoMapCpy = sb.INodoMap;
 	//La primera posicion que tenemos es 2^0, es decir, 1
@@ -128,9 +126,6 @@ int createFile(char *path)
 			break;
 		}
 
-		printf("\n\nmask = %ju (0x%jx)\n",mask, mask);
-		printf("iNodoMapCpy = %ju (0x%jx)\n",iNodoMapCpy,iNodoMapCpy);
-		printf("numToAdd = %ju (0x%jx)\n\n",numToAdd,numToAdd);
 		//Si el AND devuelve 1, esa posición está ocupada, por lo que pasamos a buscar en la siguiente posición. Para ello
 		// multiplicamos por 2 la posición donde vamos a añadirlo y desplazamos una posición el mapa.
 		numToAdd *= 2;
@@ -288,16 +283,6 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes)
 		printf("error bwrite\n");
 		return -1;
 	}
-
-///////
-	char aux[BLOCK_SIZE];
-	if (bread(DEVICE_IMAGE, fileDescriptor, aux) ==-1){
-		printf("error bread\n");
-		return -1;
-	}
-
-	//Se realiza el magicNum del nuevo bloque y se almacena.
-	//sb.iNodos[fileDescriptor].magicNum = CRC16((unsigned char*)block, BLOCK_SIZE);
 
 	//Se desmonta para sincronizar el dispositivo y el sistema de ficheros.
 	if (unmountFS() == -1){
