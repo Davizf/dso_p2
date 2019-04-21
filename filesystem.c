@@ -242,7 +242,19 @@ int readFile(int fileDescriptor, void *buffer, int numBytes)
 	if (sb.iNodos[fileDescriptor].opened != OPENED) return -1;
 
 	// Si en el mapa de iNodos el bit correspondiente al descriptor de fichero es 0, se devuelve error
-	if(iNodoUsed(sb.INodoMap, fileDescriptor) == 0) return -1;
+	uint64_t mask = 1;
+	int i;
+	//Se encuentra la posición del fichero
+	for(i = 0; i<fileDescriptor; i++) {
+		mask *= 2;
+	}
+
+	//Se hace un AND con la máscara que vale 1. Si devuelve 0, esta libre y devuelve 0.
+	if ((mask & sb.INodoMap) == 0) {
+		return -1;
+	}
+
+
 
 	char block[BLOCK_SIZE];
 	bread(DEVICE_IMAGE, fileDescriptor+DATA_BLOCKS_START, block);
@@ -279,10 +291,18 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes)
 		return -1;
 	}
 	// Si en el mapa de iNodos el bit correspondiente al descriptor de fichero es 0, se devuelve error
-	if(iNodoUsed(sb.INodoMap, fileDescriptor) == 0){
-		printf("en el mapa de iNodos el bit correspondiente al descriptor de fichero es 0\n");
+	uint64_t mask = 1;
+	int i;
+	//Se encuentra la posición del fichero
+	for(i = 0; i<fileDescriptor; i++) {
+		mask *= 2;
+	}
+
+	//Se hace un AND con la máscara que vale 1. Si devuelve 0, esta libre y devuelve 0.
+	if ((mask & sb.INodoMap) == 0) {
 		return -1;
 	}
+
 
 	//Se escribe en un bloque el buffer que almacena lo que se desa escribir
 	char block[BLOCK_SIZE];
@@ -371,44 +391,3 @@ int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 	return -1;
 	/*************************************** End Student Code ***************************************/
 }
-
-
-
-
-
-
-
-
-
-	/*************************************** Begin Student Code ***************************************/
-
-
-
-
-
-/********************FUNCIONES PROPIAS**************************/
-
-
-
-
-/******************Función: iNodeUsed*****************************
-Se encarga de comprobar si un inodo esta siendo usado.*/
-int iNodoUsed(uint64_t iNodoMap, int fileDescriptor) {
-	uint64_t mask = 1;
-	int i;
-	//Se encuentra la posición del fichero
-	for(i = 0; i<fileDescriptor; i++) {
-		mask *= 2;
-	}
-
-	//Se hace un AND con la máscara que vale 1. Si devuelve 0, esta libre y devuelve 0.
-	if ((mask & iNodoMap) == 0) {
-		return 0;
-	}
-//Si devuelve 1, esta ocupado y se devuelve -1.
-	return -1;
-}
-
-
-
-/*************************************** End Student Code ***************************************/
