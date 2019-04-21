@@ -9,12 +9,9 @@
 #include "include/filesystem.h" // Headers for the core functionality
 #include "include/auxiliary.h"  // Headers for auxiliary functions
 #include "include/metadata.h"   // Type and structure declaration of the file system
-
+#include <string.h>
 
 /*************************************** Begin Student Code ***************************************/
-#include <string.h>
-#include <stdlib.h>
-#include <ctype.h>
 
 //Se inicializan las estructuras de memoria que se van a utilizar en la gestión del sistema de ficheros
 struct Superblock sb;
