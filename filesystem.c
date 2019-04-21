@@ -172,7 +172,20 @@ int openFile(char *path)
 {
 	/*************************************** Begin Student Code ***************************************/
 	// Se invoca a la funcion findByName, que devuelve el descriptor a partir del nombre del fichero.
-	int fd = findByName(path);
+	int fd = -1;
+	int i;
+	for(i = 0; i < MAX_NUMBER_FILES; i++) {
+		//Se busca el fichero y se devuelve su posición
+		if(strcmp(sb.iNodos[i].name, path) == 0) {
+			fd = i;
+			break;
+		}
+	}
+
+	if(fd==-1){
+		return -1;
+	}
+
 
 	//Si el descriptor es erróneo, devuelve error
 	if (fd == -1) return -1;
@@ -276,7 +289,7 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes)
 	memmove(block, buffer, numBytes);
 
 	//Se invoca a la función bwrite para guardar en memoria el bloque a escribir. Si la ejecución es errónea devuelve error.
-	if (bwrite(DEVICE_IMAGE, fileDescriptor, block) == -1){
+	if (bwrite(DEVICE_IMAGE, fileDescriptor+DATA_BLOCKS_START, block) == -1){
 		printf("error bwrite\n");
 		return -1;
 	}
@@ -332,7 +345,8 @@ int lseekFile(int fileDescriptor, long offset, int whence)
 int mkDir(char *path)
 {
 	/*************************************** Begin Student Code ***************************************/
-	return -1;
+	mkdir("/home", 0777);
+	return 0;
 	/*************************************** End Student Code ***************************************/
 }
 
@@ -371,22 +385,6 @@ int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 
 
 
-/******************Función: checkFile*****************************
-Se encarga revisar la integridad de un fichero*/
-int checkFile(char *path)
-{
-	//Se obtiene el descriptor del fichero mediante la funcion findByName.
-	int fd = findByName(path);
-	char block[BLOCK_SIZE];
-	//Se obtiene el fichero que se desea comprobar
-	if(bread(DEVICE_IMAGE, fd+DATA_BLOCKS_START, block) == -1) return -2;
-
-	// Se genera el magicNum del fichero que se ha obtenido. Se compara con el magicNum de ese fichero, si no coinciden está corrupto.
-	//if (sb.iNodos[fd].magicNum != CRC16((unsigned char*)block, BLOCK_SIZE)) return -1;
-
-	//Si la ejecucíón es correcta, se devuelve 0.
-	return 0;
-}
 
 /********************FUNCIONES PROPIAS**************************/
 
@@ -412,18 +410,5 @@ int iNodoUsed(uint64_t iNodoMap, int fileDescriptor) {
 }
 
 
-/******************Función: findByName*****************************
-Se encarga de devolver el descriptor de un fichero a partir del nombre.*/
-int findByName(char *path) {
-	int fd;
-	for(fd = 0; fd < MAX_NUMBER_FILES; fd++) {
-		//Se busca el fichero y se devuelve su posición
-		if(strcmp(sb.iNodos[fd].name, path) == 0) {
-			return fd;
-		}
-	}
-	//Si no se encuentra el fichero, se devuelve -1.
-	return -1;
-}
 
 /*************************************** End Student Code ***************************************/
