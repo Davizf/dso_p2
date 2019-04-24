@@ -149,12 +149,24 @@ int createFile(char *path)
  */
 int removeFile(char *path)
 {
-	/*************************************** Begin Student Code ***************************************/
-	uint64_t position = 1;
+	char *pch;
+	char line[256];  // where we will put a copy of the input
+	char *fileName;
+	strcpy(line, path);
+	pch = strtok(line,"/"); // find the first double quote
+	while(pch != NULL){
+		fileName = pch;
+		pch = strtok (NULL, "/");
+	}
+
 	int i;
-	//Se recorre el array que guarda los nombres para encontrar el fichero.
+
+	uint64_t position = 1;
+	//printf("fileName is %s\n",fileName);
 	for(i = 0; i < MAX_NUMBER_FILES; i++) {
-		if(strcmp(sb.inodes[i].name, path) == 0) {
+		//Se busca el fichero y se devuelve su posición
+		//printf("sb name is %s\n",sb.inodes[i].name);
+		if(strcmp(sb.inodes[i].name, fileName) == 0) {
 			//Cuando encuentra el fichero, le resta la posicion en la que esta para dejarlo libre y borra el nombre
 			sb.inodeMap -= position;
 			strcpy(iNodeNames[i], "");
@@ -166,9 +178,9 @@ int removeFile(char *path)
 		}
 		position *= 2;
 	}
+
 	//Si no encuentra el fichero, devuelve error.
 	return -1;
-	/*************************************** End Student Code ***************************************/
 }
 
 /*
@@ -426,9 +438,37 @@ int mkDir(char *path)
  */
 int rmDir(char *path)
 {
-	/*************************************** Begin Student Code ***************************************/
+	char *pch;
+	char line[256];  // where we will put a copy of the input
+	char *dirName;
+	strcpy(line, path);
+	pch = strtok(line,"/"); // find the first double quote
+	while(pch != NULL){
+		dirName = pch;
+		pch = strtok (NULL, "/");
+	}
+
+	int i;
+
+	uint64_t position = 1;
+	//printf("fileName is %s\n",fileName);
+	for(i = 0; i < MAX_NUMBER_FILES; i++) {
+		//Se busca el fichero y se devuelve su posición
+		//printf("sb name is %s\n",sb.inodes[i].name);
+		if(strcmp(sb.inodes[i].name, dirName) == 0) {
+			//Cuando encuentra el fichero, le resta la posicion en la que esta para dejarlo libre y borra el nombre
+			sb.inodeMap -= position;
+			strcpy(iNodeNames[i], "");
+			sb.inodes[i].name = iNodeNames[i];
+			levels[i] = 0;
+			strcpy(preDir[i],"");
+			return 0;
+		}
+		position *= 2;
+	}
+
+	//Si no encuentra el fichero, devuelve error.
 	return -1;
-	/*************************************** End Student Code ***************************************/
 }
 
 /*
@@ -437,12 +477,35 @@ int rmDir(char *path)
  */
 int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 {
-	/*************************************** Begin Student Code ***************************************/
-	return -1;
-	/*************************************** End Student Code ***************************************/
+
+	char *pch;
+	char line[256];  // where we will put a copy of the input
+	char *dirName;
+	strcpy(line, path);
+	pch = strtok(line,"/"); // find the first double quote
+	while(pch != NULL){
+		dirName = pch;
+		pch = strtok (NULL, "/");
+	}
+
+	int i;
+	int index = 0;
+	for(i=0; i<MAX_NUMBER_FILES; i++){
+		if(strcmp(preDir[i],dirName)){
+			inodesDir[index] = i;
+			strcpy(namesDir[index],iNodeNames[i]);
+			index++;
+		}
+	}
+	for(; index<10; index++){
+		inodesDir[index] = -1;
+	}
+	return 0;
 }
 
 
+
+/*************************************** Auxiliary Functions ***************************************/
 int checkFile(char* path){
 
 	if(path[0] != '/'||path[strlen(path)-1]=='/') return -1;
