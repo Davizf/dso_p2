@@ -137,6 +137,7 @@ int createFile(char *path)
 	sb.inodes[i].directBlock = INIT_BLOCK+i+1;
 	sb.inodes[i].type = FILE;
 	levels[i] = aux_level;
+	printf("predir is %s\n",aux_preDir);
 	strcpy(preDir[i],aux_preDir);
 
 	// si va todo bien devuelve 0
@@ -477,21 +478,27 @@ int rmDir(char *path)
  */
 int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 {
-
-	char *pch;
-	char line[256];  // where we will put a copy of the input
 	char *dirName;
-	strcpy(line, path);
-	pch = strtok(line,"/"); // find the first double quote
-	while(pch != NULL){
-		dirName = pch;
-		pch = strtok (NULL, "/");
+	if(strcmp(path,"/")==0){
+		dirName ="/";
+	}else{
+		char *pch;
+		char line[256];
+
+		strcpy(line, path);
+		pch = strtok(line,"/");
+		while(pch != NULL){
+			dirName = pch;
+			pch = strtok (NULL, "/");
+		}
 	}
 
+
+	printf("dirName is %s\n",dirName);
 	int i;
 	int index = 0;
 	for(i=0; i<MAX_NUMBER_FILES; i++){
-		if(strcmp(preDir[i],dirName)){
+		if(strcmp(preDir[i],dirName) == 0){
 			inodesDir[index] = i;
 			strcpy(namesDir[index],iNodeNames[i]);
 			index++;
@@ -500,6 +507,7 @@ int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 	for(; index<10; index++){
 		inodesDir[index] = -1;
 	}
+
 	return 0;
 }
 
@@ -541,7 +549,7 @@ int checkFile(char* path){
 		}
 	}
 
-	if(directoryExist == 0){
+	if(directoryExist == 0&&maxLevel>=2){
 		printf("Directory does not exist\n");
 		return -1;
 	}
@@ -567,7 +575,7 @@ int checkFile(char* path){
 	if(maxLevel>=2){
 		aux_preDir = fileWay[maxLevel-2];
 	}else{
-		aux_preDir = "";
+		aux_preDir = "/";
 	}
 	aux_fileName = fileWay[maxLevel-1];
 	return 0;
@@ -628,7 +636,7 @@ int checkDir(char* path){
 	if(maxLevel>=2){
 		aux_preDir = fileWay[maxLevel-2];
 	}else{
-		aux_preDir = "";
+		aux_preDir = "/";
 	}
 	aux_fileName = fileWay[maxLevel-1];
 	return 0;

@@ -23,8 +23,6 @@ int main()
 {
 	int ret;
 
-	///////
-
 	ret = mkFS(DEV_SIZE);
 	if (ret != 0)
 	{
@@ -45,11 +43,6 @@ int main()
 
 	///////
 
-
-
-
-
-
 	ret = mkDir("/test");
 	if (ret != 0)
 	{
@@ -58,15 +51,25 @@ int main()
 	}
 	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST mkDir ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
 
-/*
-	ret = rmDir("/test");
+	///////
+
+	ret = mkDir("/test1");
+	if (ret != 0)
+	{
+		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST mkDir ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
+		return -1;
+	}
+	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST mkDir ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
+
+
+	ret = rmDir("/test1");
 	if (ret != 0)
 	{
 		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST rmDir ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
 		return -1;
 	}
 	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST rmDir ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
-*/
+
 
 	ret = createFile("/test/xd");
 	if (ret != 0)
@@ -76,8 +79,35 @@ int main()
 	}
 	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST createFile ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
 
+	///////
 
+	ret = createFile("/omg");
+	if (ret != 0)
+	{
+		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST createFile ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
+		return -1;
+	}
+	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST createFile ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
 
+	///////
+
+	int inodesDir[10];
+	char namesDir[10][33];
+	ret = lsDir("/",inodesDir, namesDir);
+	if (ret == -1)
+	{
+		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST lsDir ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
+		return -1;
+	}
+	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST lsDir ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
+
+	int i;
+	for(i=0; i<10; i++){
+		printf("inodesDir[%i] is %i\n",i,inodesDir[i]);
+		printf("namesDir[%i] is %s\n\n",i,namesDir[i]);
+	}
+
+	///////
 
 	ret = openFile("/test/xd");
 	if (ret < 0)
@@ -88,6 +118,7 @@ int main()
 	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST openFile ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
 	int fd = ret;
 
+	///////
 
 	char buffer[BLOCK_SIZE] = "Im here!!!";
 	ret = writeFile(fd, buffer, sizeof(buffer));
@@ -98,8 +129,7 @@ int main()
 	}
 	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST writeFile ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
 
-
-
+	///////
 
 	char b[BLOCK_SIZE];
 	ret = readFile(fd,&b,sizeof(b));
@@ -110,8 +140,6 @@ int main()
 	}
 	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST readFile ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
 	printf("block read is %s\n",b);
-
-
 
 
 	///////
