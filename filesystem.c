@@ -179,23 +179,33 @@ int openFile(char *path)
 {
 	/*************************************** Begin Student Code ***************************************/
 	// Se invoca a la funcion findByName, que devuelve el descriptor a partir del nombre del fichero.
+
+	char *pch;
+	char line[256];  // where we will put a copy of the input
+	char *fileName;
+	strcpy(line, path);
+	pch = strtok(line,"/"); // find the first double quote
+	while(pch != NULL){
+		fileName = pch;
+		pch = strtok (NULL, "/");
+	}
+
 	int fd = -1;
 	int i;
+
+	//printf("fileName is %s\n",fileName);
 	for(i = 0; i < MAX_NUMBER_FILES; i++) {
 		//Se busca el fichero y se devuelve su posición
-		if(strcmp(sb.inodes[i].name, path) == 0) {
+		//printf("sb name is %s\n",sb.inodes[i].name);
+		if(strcmp(sb.inodes[i].name, fileName) == 0) {
 			fd = i;
 			break;
 		}
 	}
 
-	if(fd==-1){
-		return -1;
-	}
-
-
 	//Si el descriptor es erróneo, devuelve error
 	if (fd == -1) return -1;
+
 
 	// Si el fichero ya está abierto se genera un error
 	if(fileState[fd] == OPENED) return -2;
@@ -205,7 +215,6 @@ int openFile(char *path)
 
 	//Pone el puntero del fichero al principio. Si esta ejecución es errónea, se devuelve error
 	if (lseekFile(fd, FS_SEEK_BEGIN, 0) != 0) return -1;
-
 	// Si todo es correcto, se devuelve el descriptor del fichero abierto
 	return fd;
 	/*************************************** End Student Code ***************************************/
@@ -371,10 +380,10 @@ int lseekFile(int fd, long offset, int whence)
  */
 int mkDir(char *path)
 {
-	/*
+
 	// comprueba las condicionanes a la hora de crear el fichero
-	if(checkFile(path) == -1){
-		printf("error checkFile\n");
+	if(checkDir(path) == -1){
+		printf("error mkDir\n");
 		return -1;
 	}
 
@@ -401,12 +410,12 @@ int mkDir(char *path)
 	sb.inodes[i].name = iNodeNames[i];
 	sb.inodeMap += position;
 	sb.inodes[i].directBlock = INIT_BLOCK+i+1;
-	sb.inodes[i].type = FILE;
+	sb.inodes[i].type = DIR;
 	levels[i] = aux_level;
 	strcpy(preDir[i],aux_preDir);
 
 	// si va todo bien devuelve 0
-	*/
+
 	return 0;
 	/*************************************** End Student Code ***************************************/
 }
@@ -444,16 +453,38 @@ int checkFile(char* path){
 	char *fileWay[4];
   char *pch;
 
-	pch = strtok(line,"/"); // find the first double quote
   int maxLevel=0;
+
+
+
+	pch = strtok(line,"/"); // find the first double quote
 	do{
     fileWay[maxLevel] = pch;
 		pch = strtok (NULL, "/");
     maxLevel++;
 	}while(pch != NULL&&maxLevel<4);
 
-	int i;
+
+
+	int i,j;
+	int directoryExist = 0;
+	if(maxLevel>=2){
+		for(i = 0; i < MAX_NUMBER_FILES; i++) {
+			for(j=0; j<=maxLevel-2; j++){
+				if((strcmp(sb.inodes[i].name, fileWay[j]) == 0)&&(sb.inodes[i].type==DIR)&&(levels[i]==(j))){
+					directoryExist = 1;
+				}
+			}
+		}
+	}
+
+	if(directoryExist == 0){
+		printf("Directory does not exist\n");
+		return -1;
+	}
+
 	for(i = 0; i < MAX_NUMBER_FILES; i++) {
+
 		//printf("inode[%i].name is %s and fileWay[%i] is %s\n",i,sb.inodes[i].name, maxLevel-1,fileWay[maxLevel-1]);
 		if((strcmp(sb.inodes[i].name, fileWay[maxLevel-1]) == 0)&&(levels[i]==(maxLevel-1))){
 			//printf("preDir is %s and fileWay is %s\n",preDir[i], fileWay[maxLevel-2]);
@@ -479,6 +510,63 @@ int checkFile(char* path){
 	return 0;
 }
 
+
 int checkDir(char* path){
+	if(path[0] != '/'||path[strlen(path)-1]=='/') return -1;
+
+  char line[256];  // where we will put a copy of the input
+
+	strcpy(line, path);
+	char *fileWay[4];
+  char *pch;
+
+  int maxLevel=0;
+
+
+
+	pch = strtok(line,"/"); // find the first double quote
+	do{
+    fileWay[maxLevel] = pch;
+		pch = strtok (NULL, "/");
+    maxLevel++;
+	}while(pch != NULL&&maxLevel<4);
+
+
+
+	int i,j;
+	int directoryExist = 1;
+	if(maxLevel>=2){
+		directoryExist = 0;
+		for(i = 0; i < MAX_NUMBER_FILES; i++) {
+			for(j=0; j<=maxLevel-2; j++){
+				if((strcmp(sb.inodes[i].name, fileWay[j]) == 0)&&(sb.inodes[i].type==DIR)&&(levels[i]==(j))){
+					directoryExist = 1;
+				}
+			}
+		}
+	}
+
+	if(directoryExist == 0){
+		printf("Previous directory does not exist\n");
+		return -1;
+	}
+
+	for(i = 0; i < MAX_NUMBER_FILES; i++) {
+		if((strcmp(sb.inodes[i].name, fileWay[maxLevel-1]) == 0)&&(levels[i]==(maxLevel-1))){
+			printf("There already exist file or directory with the same name\n");
+			return -1;
+		}
+	}
+
+
+
+
+	aux_level = maxLevel-1;
+	if(maxLevel>=2){
+		aux_preDir = fileWay[maxLevel-2];
+	}else{
+		aux_preDir = "";
+	}
+	aux_fileName = fileWay[maxLevel-1];
 	return 0;
 }

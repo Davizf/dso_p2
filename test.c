@@ -50,7 +50,6 @@ int main()
 
 
 
-
 	ret = mkDir("/test");
 	if (ret != 0)
 	{
@@ -71,7 +70,7 @@ int main()
 
 
 	ret = openFile("/test/xd");
-	if (ret != 0)
+	if (ret < 0)
 	{
 		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST openFile ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
 		return -1;
