@@ -15,8 +15,6 @@ static inline void bitmap_setbit(char *bitmap_, int i_, int val_) {
 }
 
 
-
-/*************************************** Begin Student Code ***************************************/
 #include <stdint.h>
 
 #define MAX_NUMBER_FILES 40 // NF1
@@ -28,20 +26,17 @@ struct INodo;
 struct Superblock;
 
 
-typedef struct INodo {
-  char *name; //Nombre del fichero
-  uint8_t directBlock; //Bloque asociado
-  uint8_t opened; //Indica si está abierto o no
-  uint16_t bytesUsed; //Bytes usados por el fichero
-  uint16_t pointer; //Puntero del fichero
-  uint16_t magicNum; //Utilizado para comprobar la integridad
-} INodo;
+typedef struct INode {
+  uint8_t type; // 0 si es fichero y 1 si es directorio
+  char *name; // nombre del fichero o directorio
+  uint8_t directBlock; // número del bloque que al que pertenece
+  uint16_t size; // tamaño del fichero en bytes
+  uint16_t pointer; // puntero del fichero, si es directorio no lo tiene
+} INode;
 
 typedef struct Superblock {
-  long diskSize; //Tamaño del disco
-  uint64_t INodoMap; //Mpa de indos
-  struct INodo iNodos[MAX_NUMBER_FILES]; //Array donde se almacenan los i-nodos
-  uint16_t magicNum; //Utilizado para comprobar la integridad
+  uint16_t magicNum; // número mágico que indentifica nuestro sistema de ficheros
+  long disk_size; // el tamaño del disco
+  uint64_t inodeMap; // mapa de bits
+  struct INode inodes[MAX_NUMBER_FILES]; // array de inodos
 } Superblock;
-
-/*************************************** End Student Code ***************************************/

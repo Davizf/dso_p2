@@ -11,17 +11,26 @@
 #include "include/metadata.h"   // Type and structure declaration of the file system
 #include <string.h>
 
-/*************************************** Begin Student Code ***************************************/
 
-//Se inicializan las estructuras de memoria que se van a utilizar en la gestión del sistema de ficheros
+// las estructuras iniciales
 struct Superblock sb;
-char iNodoNames[MAX_NUMBER_FILES][MAX_NAME_LENGHT];
+char iNodeNames[MAX_NUMBER_FILES][MAX_NAME_LENGHT];	// array para guardar los nombres de los ficheros/directorios
+int fileState[MAX_NUMBER_FILES];	// array para guardar el estado de los ficheros: abierto o cerrado
+int levels[MAX_FILE_SIZE]; // el nivel que se encuentra cada fichero: 4 niveles en total
+char preDir[MAX_NUMBER_FILES][MAX_FILE_SIZE]; // array para guardar los nombres de los directorios predecesor del fichero/directorio
 
+int aux_level;
+char* aux_preDir;
+char* aux_fileName;
+// estados para los ficheros
 #define CLOSED 0
 #define OPENED 1
-#define DATA_BLOCKS_START 2
 
-/*************************************** End Student Code ***************************************/
+// tipo de inodo para INode.type
+#define FILE 0
+#define DIR 1
+// el número del bloque inicial
+#define INIT_BLOCK 1
 
 
 /*
@@ -30,32 +39,36 @@ char iNodoNames[MAX_NUMBER_FILES][MAX_NAME_LENGHT];
  */
 int mkFS(long deviceSize)
 {
-	/*************************************** Begin Student Code ***************************************/
-	// Se comprueba que el tamaño del dispositivo está entre 50KiB y 100KiB, tal y como se especifa en los requisitos de arquitectura
-	//En caso de que el tamaño del dispositivo no esté en el rango aceptable, devuelve error
-	if (deviceSize < 51200 || deviceSize > 102400) return -1;
 
-	// Se restaura el mapa de i-nodos y el número de bloques ocupados. Se guarda en los metadatos el tamaño del dispostivio.
-	sb.diskSize = deviceSize;
-	sb.INodoMap = 0;
-	sb.magicNum = 0;
-
-	//Se recorre el array de inodos, restableciendo los nombres y el magicNum de cada fichero y cerrando todos los archivos.
-	// Se borran todos los nombres de la estructura que almacena los nombres de los ficheros.
-	int i;
-	for(i = 0; i < MAX_NUMBER_FILES; i++) {
-		sb.iNodos[i].name = iNodoNames[i];
-		strcpy(iNodoNames[i], "");
-		sb.iNodos[i].opened = CLOSED;
-		sb.iNodos[i].magicNum = 0;
+	// comprobar la condición NF9
+	if (deviceSize < 50*1024 || deviceSize > 10*1024*1024){
+		printf("Error NF9\n");
+		return -1;
 	}
 
-	//Por último, se desmonta el dispositivo. Si ocurre un problema desmontandolo, devuelve error.
-	if (unmountFS() == -1) return -1;
+	// inicializar los valores iniciales
+	sb.disk_size = deviceSize;
+	sb.inodeMap = 0;
+	sb.magicNum = 2019; // un número que inventamos para identificar el sistema de ficheros
 
-	//Si la ejecución es correcta, devuelve un 0.
+	// recorrer todo el array de inodes para restablecer el nombre y el estado a CLOSED
+	int i;
+	for(i = 0; i < MAX_NUMBER_FILES; i++) {
+		strcpy(iNodeNames[i], "");
+		sb.inodes[i].name = iNodeNames[i];
+		fileState[i] = CLOSED;
+		levels[i] = 0;
+		strcpy(preDir[i], "");
+	}
+
+	// Para terminar hacemos un unmount para guardar los metadatos en el disco
+	if (unmountFS() == -1){
+		printf("Error unmountFS\n");
+		return -1;
+	}
+
+	// si va todo bien devuelve 0;
 	return 0;
-	/*************************************** End Student Code ***************************************/
 }
 
 /*
@@ -64,16 +77,14 @@ int mkFS(long deviceSize)
  */
 int mountFS(void)
 {
-	/*************************************** Begin Student Code ***************************************/
-	//Mediante la función bread, se traen al sistema de ficheros los dos bloques que contienen los metadatos.
-	//En caso de error durante la ejecución de esta función, se devuelve error.
-	if (bread(DEVICE_IMAGE, 0, ((char *)&(sb))) == -1) return -1;
-	if (bread(DEVICE_IMAGE, 1, ((char *)&(iNodoNames))) == -1) return -1;
-	//TODO: Comenta los nuevos cambios
+	// leer el bloque que contienen los metadatos en el disco
+	if (bread(DEVICE_IMAGE, 0, ((char *)&(sb))) == -1){
+		printf("error bread\n");
+		return -1;
+	}
 
-	//Si la ejecución es correcta, devuelve un 0.
+	// si va todo bien devuelve 0;
 	return 0;
-	/*************************************** End Student Code ***************************************/
 }
 
 /*
@@ -82,15 +93,11 @@ int mountFS(void)
  */
 int unmountFS(void)
 {
-	/*************************************** Begin Student Code ***************************************/
-	//Mediante la función bwrite, se guardan en el dispositivo los dos bloques que contienen los metadatos.
-	//En caso de error durante la ejecución de esta función, se devuelve error.
+	// escribir el bloque que contienen los metadatos al disco
 	if (bwrite(DEVICE_IMAGE, 0, ((char *)&(sb))) == -1) return -1;
-	if (bwrite(DEVICE_IMAGE, 1, ((char *)&(iNodoNames))) == -1) return -1;
 
-	//Si la ejecución es correcta, devuelve un 0.
+	// si va todo bien devuelve 0;
 	return 0;
-	/*************************************** End Student Code ***************************************/
 }
 
 /*
@@ -99,45 +106,41 @@ int unmountFS(void)
  */
 int createFile(char *path)
 {
-	/*************************************** Begin Student Code ***************************************/
-	//Se recorre el array que almacena los nombres para comprobar si el nombre del fichero que se desea crear
-	//Si ese nombre ya existe, se devuelve fallo.
+	// comprueba las condicionanes a la hora de crear el fichero
+	if(checkFile(path) == -1){
+		printf("error checkFile\n");
+		return -1;
+	}
+
+	// ahora procedemos a encontrar el id para el fichero a crear
+	uint64_t mask = 1;	// mascara a 1
+	uint64_t inodeMapCpy = sb.inodeMap;	// copia de inodeMap
+	uint64_t position = 1;	// La primera posición de el mapa de inodes es 2^0, o sea, 1
+
+
+	// recorre el mapa de inodes
 	int i;
-	for(i = 0; i < MAX_NUMBER_FILES; i++) {
-		if(strcmp(sb.iNodos[i].name, path) == 0) return -1;
+	for(i = 0; i < MAX_NUMBER_FILES && ((mask & inodeMapCpy) != 0); i++) {
+
+		// el objetivo es encontrar 'i' que tenga valor 0 en el mapa de inodes
+		// tabla de AND para iNodeMapCpy y mas
+		// si el AND devuelve 1, esa posición está ocupada, entonces pasamos a la siguiente posición.
+		// y para ello multiplicamos por 2 la posición y desplazamos una posición el mapa.
+		position *= 2;
+		inodeMapCpy = inodeMapCpy >> 1;
 	}
 
-	// Máscara con la ultima posición a 1.
-	uint64_t mask = 1;
-	//Se crea una copia del mapa de inodos, ya que va a ser modificado
-	uint64_t iNodoMapCpy = sb.INodoMap;
-	//La primera posicion que tenemos es 2^0, es decir, 1
-	uint64_t numToAdd = 1;
+	// cuando encontramos la posición la almacenamos en el array de nombres de ficheros y en superbloque
+	strcpy(iNodeNames[i], aux_fileName);
+	sb.inodes[i].name = iNodeNames[i];
+	sb.inodeMap += position;
+	sb.inodes[i].directBlock = INIT_BLOCK+i+1;
+	sb.inodes[i].type = FILE;
+	levels[i] = aux_level;
+	strcpy(preDir[i],aux_preDir);
 
-
-	// Recorre el mapa de inodos
-	for(i = 0; i < MAX_NUMBER_FILES; i++) {
-		//Cuando la funcion AND entre la mascara y el mapara devuelva un 0, significa que el mapa en esa posicion es 0,
-		//ya que la máscara sabemos que tiene el valor 1. En ese casa, se para el bucle, ya que se tiene el valor deseado.
-		if ((mask & iNodoMapCpy) == 0) {
-			break;
-		}
-
-		//Si el AND devuelve 1, esa posición está ocupada, por lo que pasamos a buscar en la siguiente posición. Para ello
-		// multiplicamos por 2 la posición donde vamos a añadirlo y desplazamos una posición el mapa.
-		numToAdd *= 2;
-		iNodoMapCpy = iNodoMapCpy >> 1;
-	}
-
-	//Se añade en la posición libre el nombre del archivo que se va a añadir. Se añade al mapa la posicion que se ocupa.
-	//En el array de inodos se guarda la posición del fichero.
-	strcpy(iNodoNames[i], path);
-	sb.INodoMap += numToAdd;
-	sb.iNodos[i].directBlock = DATA_BLOCKS_START+i+1;
-
-	//Si la ejecución es correcta, se devuelve un 0.
+	// si va todo bien devuelve 0
 	return 0;
-	/*************************************** End Student Code ***************************************/
 }
 
 /*
@@ -147,17 +150,21 @@ int createFile(char *path)
 int removeFile(char *path)
 {
 	/*************************************** Begin Student Code ***************************************/
-	uint64_t numToAdd = 1;
+	uint64_t position = 1;
 	int i;
 	//Se recorre el array que guarda los nombres para encontrar el fichero.
 	for(i = 0; i < MAX_NUMBER_FILES; i++) {
-		if(strcmp(sb.iNodos[i].name, path) == 0) {
+		if(strcmp(sb.inodes[i].name, path) == 0) {
 			//Cuando encuentra el fichero, le resta la posicion en la que esta para dejarlo libre y borra el nombre
-			sb.INodoMap -= numToAdd;
-			strcpy(iNodoNames[i], "");
+			sb.inodeMap -= position;
+			strcpy(iNodeNames[i], "");
+			sb.inodes[i].name = iNodeNames[i];
+			fileState[i] = CLOSED;
+			levels[i] = 0;
+			strcpy(preDir[i],"");
 			return 0;
 		}
-		numToAdd *= 2;
+		position *= 2;
 	}
 	//Si no encuentra el fichero, devuelve error.
 	return -1;
@@ -176,7 +183,7 @@ int openFile(char *path)
 	int i;
 	for(i = 0; i < MAX_NUMBER_FILES; i++) {
 		//Se busca el fichero y se devuelve su posición
-		if(strcmp(sb.iNodos[i].name, path) == 0) {
+		if(strcmp(sb.inodes[i].name, path) == 0) {
 			fd = i;
 			break;
 		}
@@ -191,10 +198,10 @@ int openFile(char *path)
 	if (fd == -1) return -1;
 
 	// Si el fichero ya está abierto se genera un error
-	if(sb.iNodos[fd].opened == OPENED) return -2;
+	if(fileState[fd] == OPENED) return -2;
 
 	//Cambia el atributo a OPENED
-	sb.iNodos[fd].opened = OPENED;
+	fileState[fd] = OPENED;
 
 	//Pone el puntero del fichero al principio. Si esta ejecución es errónea, se devuelve error
 	if (lseekFile(fd, FS_SEEK_BEGIN, 0) != 0) return -1;
@@ -208,17 +215,17 @@ int openFile(char *path)
  * @brief	Closes a file.
  * @return	0 if success, -1 otherwise.
  */
-int closeFile(int fileDescriptor)
+int closeFile(int fd)
 {
 	/*************************************** Begin Student Code ***************************************/
 	// Si el superbloque está fuera del rango se devuelve un error
-	if (fileDescriptor < 0 || fileDescriptor > MAX_NUMBER_FILES-1) return -1;
+	if (fd < 0 || fd > MAX_NUMBER_FILES-1) return -1;
 
 	// Si el superbloque que se quiere cerrar ya está cerrado, se genera un error.
-	if(sb.iNodos[fileDescriptor].opened == CLOSED) return -1;
+	if(fileState[fd] == CLOSED) return -1;
 
 	// Si el superbloque que se quiere cerrar está abierto se cierra.
-	sb.iNodos[fileDescriptor].opened = CLOSED;
+	fileState[fd] = CLOSED;
 
 	//Si la ejecución es correcta, se devuelve 0.
 	return 0;
@@ -229,35 +236,35 @@ int closeFile(int fileDescriptor)
  * @brief	Reads a number of bytes from a file and stores them in a buffer.
  * @return	Number of bytes properly read, -1 in case of error.
  */
-int readFile(int fileDescriptor, void *buffer, int numBytes)
+int readFile(int fd, void *buffer, int numBytes)
 {
 	/*************************************** Begin Student Code ***************************************/
 	// Si el superbloque está fuera del rango se devuelve un error
-	if (fileDescriptor < 0 || fileDescriptor > MAX_NUMBER_FILES-1) return -1;
+	if (fd < 0 || fd > MAX_NUMBER_FILES-1) return -1;
 
 	// El número de bytes a leer no puede ser mayor que el tamaño máximo de un fichero
 	if (numBytes < 0 || numBytes > MAX_FILE_SIZE) return -1;
 
 	// El fichero tiene que estar abierto para poder leer
-	if (sb.iNodos[fileDescriptor].opened != OPENED) return -1;
+	if (fileState[fd] != OPENED) return -1;
 
-	// Si en el mapa de iNodos el bit correspondiente al descriptor de fichero es 0, se devuelve error
+	// Si en el mapa de inodes el bit correspondiente al descriptor de fichero es 0, se devuelve error
 	uint64_t mask = 1;
 	int i;
 	//Se encuentra la posición del fichero
-	for(i = 0; i<fileDescriptor; i++) {
+	for(i = 0; i<fd; i++) {
 		mask *= 2;
 	}
 
 	//Se hace un AND con la máscara que vale 1. Si devuelve 0, esta libre y devuelve 0.
-	if ((mask & sb.INodoMap) == 0) {
+	if ((mask & sb.inodeMap) == 0) {
 		return -1;
 	}
 
 
 
 	char block[BLOCK_SIZE];
-	bread(DEVICE_IMAGE, fileDescriptor+DATA_BLOCKS_START, block);
+	bread(DEVICE_IMAGE, fd+INIT_BLOCK, block);
 
 	// Se almacenan los bytes solicitados del fichero en el buffer
 	memmove(buffer, block, numBytes);
@@ -271,11 +278,11 @@ int readFile(int fileDescriptor, void *buffer, int numBytes)
  * @brief	Writes a number of bytes from a buffer and into a file.
  * @return	Number of bytes properly written, -1 in case of error.
  */
-int writeFile(int fileDescriptor, void *buffer, int numBytes)
+int writeFile(int fd, void *buffer, int numBytes)
 {
 	/*************************************** Begin Student Code ***************************************/
 	// Si el superbloque está fuera del rango se devuelve un error
-	if (fileDescriptor < 0 || fileDescriptor > MAX_NUMBER_FILES-1){
+	if (fd < 0 || fd > MAX_NUMBER_FILES-1){
 		printf("el superbloque está fuera del rango\n");
 		return -1;
 	}
@@ -286,20 +293,20 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes)
 		return -1;
 	}
 	// El fichero tiene que estar abierto para poder leer
-	if (sb.iNodos[fileDescriptor].opened != OPENED){
+	if (fileState[fd] != OPENED){
 		printf("El fichero tiene que estar abierto para poder leer\n");
 		return -1;
 	}
-	// Si en el mapa de iNodos el bit correspondiente al descriptor de fichero es 0, se devuelve error
+	// Si en el mapa de inodes el bit correspondiente al descriptor de fichero es 0, se devuelve error
 	uint64_t mask = 1;
 	int i;
 	//Se encuentra la posición del fichero
-	for(i = 0; i<fileDescriptor; i++) {
+	for(i = 0; i<fd; i++) {
 		mask *= 2;
 	}
 
 	//Se hace un AND con la máscara que vale 1. Si devuelve 0, esta libre y devuelve 0.
-	if ((mask & sb.INodoMap) == 0) {
+	if ((mask & sb.inodeMap) == 0) {
 		return -1;
 	}
 
@@ -309,7 +316,7 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes)
 	memmove(block, buffer, numBytes);
 
 	//Se invoca a la función bwrite para guardar en memoria el bloque a escribir. Si la ejecución es errónea devuelve error.
-	if (bwrite(DEVICE_IMAGE, fileDescriptor+DATA_BLOCKS_START, block) == -1){
+	if (bwrite(DEVICE_IMAGE, fd+INIT_BLOCK, block) == -1){
 		printf("error bwrite\n");
 		return -1;
 	}
@@ -328,29 +335,29 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes)
  * @brief	Modifies the position of the seek pointer of a file.
  * @return	0 if succes, -1 otherwise.
  */
-int lseekFile(int fileDescriptor, long offset, int whence)
+int lseekFile(int fd, long offset, int whence)
 {
 	/*************************************** Begin Student Code ***************************************/
 	// Si el superbloque está fuera del rango se devuelve un error
-	if (fileDescriptor < 0 || fileDescriptor > MAX_NUMBER_FILES-1) return -1;
+	if (fd < 0 || fd > MAX_NUMBER_FILES-1) return -1;
 
 	//Si se desea cambiar el puntero fuera del archivo, devuelve error.
 	if (whence == FS_SEEK_CUR &&
-		(sb.iNodos[fileDescriptor].pointer + offset > MAX_NUMBER_FILES-1 || sb.iNodos[fileDescriptor].pointer + offset < 0)) return -1;
+		(sb.inodes[fd].pointer + offset > MAX_NUMBER_FILES-1 || sb.inodes[fd].pointer + offset < 0)) return -1;
 
 	//Se comprueba el flag de whence
 	switch(whence){
 		//Si se desea cambiar el puntero desde la posición anterior, se añade el número de bytes que se desee moveer
 		case FS_SEEK_CUR:
-			sb.iNodos[fileDescriptor].pointer = offset;
+			sb.inodes[fd].pointer = offset;
 			break;
 		//Si se desea cambiar a la posición inicial, se pone a 0.
 		case FS_SEEK_BEGIN:
-			sb.iNodos[fileDescriptor].pointer = 0;
+			sb.inodes[fd].pointer = 0;
 			break;
 		//Si se desea cambiar a la posición inicial, se pone al tamaño del bloque-1.
 		case FS_SEEK_END:
-			sb.iNodos[fileDescriptor].pointer = MAX_FILE_SIZE-1;
+			sb.inodes[fd].pointer = MAX_FILE_SIZE-1;
 			break;
 	}
 	//Si la ejecucíón es correcta, se devuelve 0.
@@ -364,8 +371,42 @@ int lseekFile(int fileDescriptor, long offset, int whence)
  */
 int mkDir(char *path)
 {
-	/*************************************** Begin Student Code ***************************************/
-	mkdir("/home", 0777);
+	/*
+	// comprueba las condicionanes a la hora de crear el fichero
+	if(checkFile(path) == -1){
+		printf("error checkFile\n");
+		return -1;
+	}
+
+	// ahora procedemos a encontrar el id para el fichero a crear
+	uint64_t mask = 1;	// mascara a 1
+	uint64_t inodeMapCpy = sb.inodeMap;	// copia de inodeMap
+	uint64_t position = 1;	// La primera posición de el mapa de inodes es 2^0, o sea, 1
+
+
+	// recorre el mapa de inodes
+	int i;
+	for(i = 0; i < MAX_NUMBER_FILES && ((mask & inodeMapCpy) != 0); i++) {
+
+		// el objetivo es encontrar 'i' que tenga valor 0 en el mapa de inodes
+		// tabla de AND para iNodeMapCpy y mas
+		// si el AND devuelve 1, esa posición está ocupada, entonces pasamos a la siguiente posición.
+		// y para ello multiplicamos por 2 la posición y desplazamos una posición el mapa.
+		position *= 2;
+		inodeMapCpy = inodeMapCpy >> 1;
+	}
+
+	// cuando encontramos la posición la almacenamos en el array de nombres de ficheros y en superbloque
+	strcpy(iNodeNames[i], aux_fileName);
+	sb.inodes[i].name = iNodeNames[i];
+	sb.inodeMap += position;
+	sb.inodes[i].directBlock = INIT_BLOCK+i+1;
+	sb.inodes[i].type = FILE;
+	levels[i] = aux_level;
+	strcpy(preDir[i],aux_preDir);
+
+	// si va todo bien devuelve 0
+	*/
 	return 0;
 	/*************************************** End Student Code ***************************************/
 }
@@ -390,4 +431,54 @@ int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 	/*************************************** Begin Student Code ***************************************/
 	return -1;
 	/*************************************** End Student Code ***************************************/
+}
+
+
+int checkFile(char* path){
+
+	if(path[0] != '/'||path[strlen(path)-1]=='/') return -1;
+
+  char line[256];  // where we will put a copy of the input
+
+	strcpy(line, path);
+	char *fileWay[4];
+  char *pch;
+
+	pch = strtok(line,"/"); // find the first double quote
+  int maxLevel=0;
+	do{
+    fileWay[maxLevel] = pch;
+		pch = strtok (NULL, "/");
+    maxLevel++;
+	}while(pch != NULL&&maxLevel<4);
+
+	int i;
+	for(i = 0; i < MAX_NUMBER_FILES; i++) {
+		//printf("inode[%i].name is %s and fileWay[%i] is %s\n",i,sb.inodes[i].name, maxLevel-1,fileWay[maxLevel-1]);
+		if((strcmp(sb.inodes[i].name, fileWay[maxLevel-1]) == 0)&&(levels[i]==(maxLevel-1))){
+			//printf("preDir is %s and fileWay is %s\n",preDir[i], fileWay[maxLevel-2]);
+			if((maxLevel-1)>0){
+				if(strcmp(preDir[i], fileWay[maxLevel-2]) == 0){
+					printf("File already exists\n");
+					return -1;
+				}
+			}else{
+				printf("File already exists\n");
+				return -1;
+			}
+
+		}
+	}
+	aux_level = maxLevel-1;
+	if(maxLevel>=2){
+		aux_preDir = fileWay[maxLevel-2];
+	}else{
+		aux_preDir = "";
+	}
+	aux_fileName = fileWay[maxLevel-1];
+	return 0;
+}
+
+int checkDir(char* path){
+	return 0;
 }
