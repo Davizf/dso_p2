@@ -37,6 +37,6 @@ typedef struct INode {
 typedef struct Superblock {
   uint16_t magicNum; // número mágico que indentifica nuestro sistema de ficheros
   long disk_size; // el tamaño del disco
-  uint64_t inodeMap; // mapa de bits
+  uint64_t inodeMap; // mapa de inodos y bloques
   struct INode inodes[MAX_NUMBER_FILES]; // array de inodos
 } Superblock;
