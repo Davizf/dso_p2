@@ -23,6 +23,7 @@ int main()
 {
 	int ret;
 
+	/////// F1.1
 	ret = mkFS(DEV_SIZE);
 	if (ret != 0)
 	{
@@ -31,7 +32,7 @@ int main()
 	}
 	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST mkFS ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
 
-	///////
+	/////// F1.2
 
 	ret = mountFS();
 	if (ret != 0)
@@ -41,9 +42,9 @@ int main()
 	}
 	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST mountFS ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
 
-	///////
+	/////// F1.11
 
-	ret = mkDir("/test");
+	ret = mkDir("/dir1");
 	if (ret != 0)
 	{
 		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST mkDir ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
@@ -51,9 +52,9 @@ int main()
 	}
 	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST mkDir ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
 
-	///////
+	/////// F1.11
 
-	ret = mkDir("/test1");
+	ret = mkDir("/dir2");
 	if (ret != 0)
 	{
 		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST mkDir ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
@@ -61,8 +62,8 @@ int main()
 	}
 	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST mkDir ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
 
-
-	ret = rmDir("/test1");
+	/////// F1.12
+	ret = rmDir("/dir2");
 	if (ret != 0)
 	{
 		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST rmDir ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
@@ -70,8 +71,8 @@ int main()
 	}
 	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST rmDir ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
 
-
-	ret = createFile("/test/xd");
+	/////// F1.4
+	ret = createFile("/dir1/file1");
 	if (ret != 0)
 	{
 		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST createFile ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
@@ -79,9 +80,9 @@ int main()
 	}
 	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST createFile ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
 
-	///////
+	/////// F1.4
 
-	ret = createFile("/omg");
+	ret = createFile("/file2");
 	if (ret != 0)
 	{
 		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST createFile ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
@@ -89,7 +90,43 @@ int main()
 	}
 	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST createFile ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
 
-	///////
+
+
+	/////// F1.6
+
+	ret = openFile("/dir1/file1");
+	if (ret < 0)
+	{
+		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST openFile ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
+		return -1;
+	}
+	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST openFile ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
+	int fd = ret;
+
+	/////// F1.9
+
+	char buffer[BLOCK_SIZE] = "Im here!!!";
+	ret = writeFile(fd, buffer, sizeof(buffer));
+	if (ret == -1)
+	{
+		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST writeFile ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
+		return -1;
+	}
+	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST writeFile ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
+
+	/////// F1.8
+
+	char b[BLOCK_SIZE];
+	ret = readFile(fd,&b,sizeof(b));
+	if (ret == -1)
+	{
+		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST readFile ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
+		return -1;
+	}
+	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST readFile ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
+	printf("block read is %s\n",b);
+
+	/////// F1.13
 
 	int inodesDir[10];
 	char namesDir[10][33];
@@ -102,47 +139,15 @@ int main()
 	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST lsDir ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
 
 	int i;
+	printf("************************\n");
 	for(i=0; i<10; i++){
-		printf("inodesDir[%i] is %i\n",i,inodesDir[i]);
-		printf("namesDir[%i] is %s\n\n",i,namesDir[i]);
+		printf("inodesDir[%i] = %i\n",i,inodesDir[i]);
+		printf("namesDir[%i] = %s\n",i,namesDir[i]);
 	}
-
-	///////
-
-	ret = openFile("/test/xd");
-	if (ret < 0)
-	{
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST openFile ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST openFile ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
-	int fd = ret;
-
-	///////
-
-	char buffer[BLOCK_SIZE] = "Im here!!!";
-	ret = writeFile(fd, buffer, sizeof(buffer));
-	if (ret == -1)
-	{
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST writeFile ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST writeFile ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
-
-	///////
-
-	char b[BLOCK_SIZE];
-	ret = readFile(fd,&b,sizeof(b));
-	if (ret == -1)
-	{
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST readFile ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST readFile ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
-	printf("block read is %s\n",b);
+	printf("************************\n");
 
 
-	///////
+	/////// F1.3
 
 	ret = unmountFS();
 	if (ret != 0)
