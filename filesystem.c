@@ -17,7 +17,7 @@ struct Superblock sb;
 char iNodeNames[MAX_NUMBER_FILES][MAX_NAME_LENGHT];	// array para guardar los nombres de los ficheros/directorios
 int fileState[MAX_NUMBER_FILES];	// array para guardar el estado de los ficheros: abierto o cerrado
 int levels[MAX_FILE_SIZE]; // el nivel que se encuentra cada fichero: 4 niveles en total
-char preDir[MAX_NUMBER_FILES][MAX_FILE_SIZE]; // array para guardar los nombres de los directorios predecesor del fichero/directorio
+char preDir[MAX_NUMBER_FILES][MAX_NAME_LENGHT]; // array para guardar los nombres de los directorios predecesor del fichero/directorio
 
 int aux_level;	// variable auxiliar para guardar temporalmente el nivel del fichero o directorio
 char* aux_preDir;	// variable auxiliar para guardar temporalmente el directorio predecesor
@@ -143,8 +143,9 @@ int createFile(char *path)
 	sb.inodes[i].directBlock = INIT_BLOCK+i+1;
 	sb.inodes[i].type = FILE;
 	levels[i] = aux_level;
-	printf("predir is %s\n",aux_preDir);
+	sb.inodes[i].level = aux_level;
 	strcpy(preDir[i],aux_preDir);
+	strcpy(sb.inodes[i].preDir,aux_preDir);
 
 	// si va todo bien devuelve 0
 	return 0;
@@ -180,7 +181,9 @@ int removeFile(char *path)
 			sb.inodes[i].size = 0;
 			fileState[i] = CLOSED;
 			levels[i] = 0;
+			sb.inodes[i].level = 0;
 			strcpy(preDir[i],"");
+			strcpy(sb.inodes[i].preDir,"");
 			return 0;
 		}
 		// si no encuentra el fichero pasa a la siguiente posicion
@@ -426,7 +429,9 @@ int mkDir(char *path)
 	sb.inodes[i].directBlock = INIT_BLOCK+i+1;
 	sb.inodes[i].type = DIR;
 	levels[i] = aux_level;
+	sb.inodes[i].level = aux_level;
 	strcpy(preDir[i],aux_preDir);
+	strcpy(sb.inodes[i].preDir,aux_preDir);
 
 	// si va todo bien devuelve 0
 
@@ -464,7 +469,9 @@ int rmDir(char *path)
 			strcpy(iNodeNames[i], "");
 			sb.inodes[i].name = iNodeNames[i];
 			levels[i] = 0;
+			sb.inodes[i].level = 0;
 			strcpy(preDir[i],"");
+			strcpy(sb.inodes[i].preDir,"");
 			return 0;
 		}
 		position *= 2;
@@ -497,7 +504,6 @@ int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 	}
 
 	// pasar los nombres de los directorios y id a las variables correspondientes
-	printf("dirName is %s\n",dirName);
 	int i;
 	int index = 0;
 	for(i=0; i<MAX_NUMBER_FILES; i++){
@@ -510,6 +516,7 @@ int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 	// lo que sobran se les asignan -1
 	for(; index<10; index++){
 		inodesDir[index] = -1;
+		strcpy(namesDir[index],"");
 	}
 	// si va todo bien devuelve 0
 	return 0;

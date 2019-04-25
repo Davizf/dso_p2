@@ -32,6 +32,8 @@ typedef struct INode {
   uint8_t directBlock; // número del bloque que al que pertenece
   uint16_t size; // tamaño del fichero en bytes
   uint16_t pointer; // puntero del fichero, si es directorio no lo tiene
+  int level; // guardar el nivel en el que se encuentra el fichero/directorio
+  char preDir[MAX_NAME_LENGHT];
 } INode;
 
 typedef struct Superblock {
