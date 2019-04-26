@@ -18,11 +18,12 @@ char iNodeNames[MAX_NUMBER_FILES][MAX_NAME_LENGHT];	// array para guardar los no
 int fileState[MAX_NUMBER_FILES];	// array para guardar el estado de los ficheros: abierto o cerrado
 int levels[MAX_FILE_SIZE]; // el nivel que se encuentra cada fichero: 4 niveles en total
 char preDir[MAX_NUMBER_FILES][MAX_NAME_LENGHT]; // array para guardar los nombres de los directorios predecesor del fichero/directorio
+int suDir[MAX_NUMBER_FILES]; // array para guardar la cantidad de ficheros o directoios contenido en un directorio
+int suDirMaster; // variable para guardar la cantidad de ficheros o directorio contenido en el directorio master
 
 int aux_level;	// variable auxiliar para guardar temporalmente el nivel del fichero o directorio
-char* aux_preDir;	// variable auxiliar para guardar temporalmente el directorio predecesor
-char* aux_fileName;	// variable auxiliar para guardar temporalmente nombre del fichero
-
+char aux_preDir[32];	// variable auxiliar para guardar temporalmente el directorio predecesor
+char aux_fileName[32];	// variable auxiliar para guardar temporalmente nombre del fichero
 // estados para los ficheros
 #define CLOSED 0
 #define OPENED 1
@@ -117,7 +118,8 @@ int createFile(char *path)
 		printf("error checkFile\n");
 		return -1;
 	}else if(error == -1){
-		printf("error same name file");
+		printf("error same name file\n");
+		return -1;
 	}
 
 	// ahora procedemos a encontrar el id para el fichero a crear
@@ -135,6 +137,32 @@ int createFile(char *path)
 		position *= 2;
 		inodeMapCpy = inodeMapCpy >> 1;
 	}
+
+	// comprobar la cantidad de ficheros/directorios que se han creado
+	if(strcmp(aux_preDir,"-")==0){	// en caso de directorio raiz
+		if(suDirMaster<10){
+			suDirMaster++;
+		}else{
+			printf("Out of range maximum file on the directory master\n");
+			return -2;
+		}
+	}else{
+		// sacar el id del inodo del directiorio predecesor
+		int z;
+		for(z=0; z<MAX_NUMBER_FILES; z++){
+			if(strcmp(aux_preDir, preDir[z]))
+				break;
+		}
+		if(suDir[z]<10){
+
+			suDir[z]++;
+		}else{
+			printf("Out of range maximum file on the directory %s\n",iNodeNames[z]);
+			return -2;
+		}
+	}
+
+
 
 	// cuando encontramos la posición la almacenamos en el array de nombres de ficheros y en superbloque
 	strcpy(iNodeNames[i], aux_fileName);
@@ -169,6 +197,18 @@ int removeFile(char *path)
 		pch = strtok (NULL, "/");
 	}
 
+
+	// restar a 1 al array para guardar cantidades de ficheros
+	if(strcmp(aux_preDir,"-")==0){	// en caso de directorio raiz
+			suDirMaster--;
+	}else{
+		// sacar el id del inodo del directiorio predecesor
+		int z;
+		for(z=0; z<MAX_NUMBER_FILES&&(strcmp(aux_preDir, preDir[z])!=0); z++);
+		suDir[z]--;
+	}
+
+
 	// conseguir el id que correponde al inodo con el nombre del fichero que hemos sacado
 	int i;
 	uint64_t position = 1;
@@ -180,6 +220,7 @@ int removeFile(char *path)
 			strcpy(iNodeNames[i], "");
 			sb.inodes[i].name = iNodeNames[i];
 			sb.inodes[i].size = 0;
+			sb.inodes[i].pointer = 0;
 			fileState[i] = CLOSED;
 			levels[i] = 0;
 			sb.inodes[i].level = 0;
@@ -192,6 +233,7 @@ int removeFile(char *path)
 	}
 
 	//Si no encuentra el fichero, devuelve error.
+	printf("File not exist\n");
 	return -1;
 }
 
@@ -201,7 +243,7 @@ int removeFile(char *path)
  */
 int openFile(char *path)
 {
-	if(checkPath(path)!=0)	return -1;
+	if(checkPath(path)!=0)	return -2;
 	// sacar el nombre el fichero quitando su ruta
 	char *pch;
 	char line[256];  // where we will put a copy of the input
@@ -225,10 +267,16 @@ int openFile(char *path)
 	}
 
 	//Si no existe el fichero, devuelve error
-	if (fd == -1) return -2;
+	if (fd == -1){
+		printf("File not exist\n");
+		return -1;
+	}
 
 	// Si el fichero ya está abierto se genera un error
-	if(fileState[fd] == OPENED) return -1;
+	if(fileState[fd] == OPENED){
+		printf("File already opened\n");
+		return -2;
+	}
 
 	//Cambia el atributo a OPENED
 	fileState[fd] = OPENED;
@@ -236,6 +284,7 @@ int openFile(char *path)
 	//Pone el puntero del fichero al principio. Si esta ejecución es errónea, se devuelve error
 	if (lseekFile(fd, FS_SEEK_BEGIN, 0) != 0) return -1;
 	// Si todo es correcto, se devuelve el descriptor del fichero abierto
+
 	return fd;
 }
 
@@ -246,10 +295,16 @@ int openFile(char *path)
 int closeFile(int fd)
 {
 	// Si el superbloque está fuera del rango se devuelve un error
-	if (fd < 0 || fd > MAX_NUMBER_FILES-1) return -1;
+	if (fd < 0 || fd > MAX_NUMBER_FILES-1){
+		printf("Invalid fd\n");
+		return -1;
+	}
 
 	// Si el superbloque que se quiere cerrar ya está cerrado, se genera un error.
-	if(fileState[fd] == CLOSED) return -1;
+	if(fileState[fd] == CLOSED){
+		printf("error: file not exist or already closed\n");
+		return -1;
+	}
 
 	// Si el superbloque que se quiere cerrar está abierto se cierra.
 	fileState[fd] = CLOSED;
@@ -267,13 +322,21 @@ int readFile(int fd, void *buffer, int numBytes)
 {
 
 	// Si el superbloque está fuera del rango se devuelve un error
-	if (fd < 0 || fd > MAX_NUMBER_FILES-1) return -1;
-
+	if (fd < 0 || fd > MAX_NUMBER_FILES-1){
+		printf("Invalid fd\n");
+		return -1;
+	}
 	// El número de bytes a leer no puede ser mayor que el tamaño máximo de un fichero
-	if (numBytes < 0 || numBytes > MAX_FILE_SIZE) return -1;
+	if (numBytes < 0 || numBytes > MAX_FILE_SIZE){
+		printf("Invalid numBytes\n");
+		return -1;
+	}
 
 	// El fichero tiene que estar abierto para poder leer
-	if (fileState[fd] != OPENED) return -1;
+	if (fileState[fd] != OPENED){
+		printf("File not opened\n");
+		return -1;
+	}
 
 	// Si en el mapa de inodes el bit correspondiente al descriptor de fichero es 0, se devuelve error
 	uint64_t pos = 1;
@@ -289,7 +352,10 @@ int readFile(int fd, void *buffer, int numBytes)
 	}
 
 	char block[BLOCK_SIZE];
-	bread(DEVICE_IMAGE, fd+INIT_BLOCK, block);
+	if(bread(DEVICE_IMAGE, fd+INIT_BLOCK, block)==-1){
+		printf("error bread\n");
+		return -1;
+	}
 
 	// Se almacenan los bytes solicitados del fichero en el buffer
 	memmove(buffer, block, numBytes);
@@ -308,18 +374,18 @@ int writeFile(int fd, void *buffer, int numBytes)
 	/*************************************** Begin Student Code ***************************************/
 	// Si el superbloque está fuera del rango se devuelve un error
 	if (fd < 0 || fd > MAX_NUMBER_FILES-1){
-		printf("el superbloque está fuera del rango\n");
+		printf("Invalid fd\n");
 		return -1;
 	}
 
 	// El número de bytes a leer no puede ser mayor que el tamaño máximo de un fichero
 	if (numBytes < 0 || numBytes > MAX_FILE_SIZE){
-		printf("El número de bytes a leer no puede ser mayor que el tamaño máximo de un fichero\n");
+		printf("Invalid numBytes\n");
 		return -1;
 	}
 	// El fichero tiene que estar abierto para poder leer
 	if (fileState[fd] != OPENED){
-		printf("El fichero tiene que estar abierto para poder leer\n");
+		printf("File not opened\n");
 		return -1;
 	}
 	// Si en el mapa de inodes el bit correspondiente al descriptor de fichero es 0, se devuelve error
@@ -367,11 +433,23 @@ int lseekFile(int fd, long offset, int whence)
 {
 	/*************************************** Begin Student Code ***************************************/
 	// Si el superbloque está fuera del rango se devuelve un error
-	if (fd < 0 || fd > MAX_NUMBER_FILES-1) return -1;
+	if (fd < 0 || fd > MAX_NUMBER_FILES-1){
+		printf("Invalid fd\n");
+		return -1;
+	}
+
+	// Comprobar si existe el fichero
+	if (strcmp(sb.inodes[fd].name,"")==0){
+		printf("File not exists\n");
+		return -1;
+	}
 
 	//Si se desea cambiar el puntero fuera del archivo, devuelve error.
 	if (whence == FS_SEEK_CUR &&
-		(sb.inodes[fd].pointer + offset > MAX_NUMBER_FILES-1 || sb.inodes[fd].pointer + offset < 0)) return -1;
+		(sb.inodes[fd].pointer + offset > MAX_NUMBER_FILES-1 || sb.inodes[fd].pointer + offset < 0)){
+			printf("Pointer out of range\n");
+			return -1;
+		}
 
 	//Se comprueba el flag de whence
 	switch(whence){
@@ -399,19 +477,48 @@ int lseekFile(int fd, long offset, int whence)
  */
 int mkDir(char *path)
 {
-	if(checkPath(path)!=0)	return -1;
 	// comprueba las condicionanes a la hora de crear el fichero
-	if(checkDir(path) == -1){
-		printf("error mkDir\n");
+	int error = checkDir(path);
+	if(error==-2){
+		printf("error checkDir\n");
 		return -1;
 	}
+
+	if(error == -1){
+		printf("There is a directory with same name\n");
+		return -1;
+	}
+
+
+	// comprobar la cantidad de ficheros/directorios que se han creado
+	if(strcmp(aux_preDir,"-")==0){	// en caso de directorio raiz
+		if(suDirMaster<10){
+			suDirMaster++;
+		}else{
+			printf("Out of range maximum file on the directory master\n");
+			return -2;
+		}
+	}else{
+		// sacar el id del inodo del directiorio predecesor
+		int z;
+		for(z=0; z<MAX_NUMBER_FILES; z++){
+			if(strcmp(aux_preDir, preDir[z]))
+				break;
+		}
+		if(suDir[z]<10){
+
+			suDir[z]++;
+		}else{
+			printf("Out of range maximum file on the directory %s\n",iNodeNames[z]);
+			return -2;
+		}
+	}
+
 
 	// ahora procedemos a encontrar el id para el fichero a crear
 	uint64_t pos = 1;	// mascara a 1
 	uint64_t inodeMapCpy = sb.inodeMap;	// copia de inodeMap
 	uint64_t position = 1;	// La primera posición de el mapa de inodes es 2^0, o sea, 1
-
-
 	// recorre el mapa de inodes
 	int i;
 	for(i = 0; i < MAX_NUMBER_FILES && ((pos & inodeMapCpy) != 0); i++) {
@@ -426,14 +533,17 @@ int mkDir(char *path)
 
 	// cuando encontramos la posición la almacenamos en el array de nombres de ficheros y en superbloque
 	strcpy(iNodeNames[i], aux_fileName);
-	sb.inodes[i].name = iNodeNames[i];
+	strcpy(sb.inodes[i].name,iNodeNames[i]);
+	//printf("sb.name is %s\n",sb.inodes[i].name);
 	sb.inodeMap += position;
 	sb.inodes[i].directBlock = INIT_BLOCK+i+1;
 	sb.inodes[i].type = DIR;
 	levels[i] = aux_level;
+	//printf("level is %i\n",levels[i]);
 	sb.inodes[i].level = aux_level;
 	strcpy(preDir[i],aux_preDir);
 	strcpy(sb.inodes[i].preDir,aux_preDir);
+	//printf("preDir is %s\n", preDir[i]);
 
 	// si va todo bien devuelve 0
 
@@ -447,7 +557,10 @@ int mkDir(char *path)
  */
 int rmDir(char *path)
 {
-	if(checkPath(path)!=0)	return -1;
+	if(checkPath(path)!=0){
+		printf("error checkPath\n");
+		return -2;
+	}
 	// encontrar el nombre del directorio
 	char *pch;
 	char line[256];  // where we will put a copy of the input
@@ -458,6 +571,18 @@ int rmDir(char *path)
 		dirName = pch;
 		pch = strtok (NULL, "/");
 	}
+
+
+	// restar a 1 al array para guardar cantidades de ficheros
+	if(strcmp(aux_preDir,"-")==0){	// en caso de directorio raiz
+			suDirMaster--;
+	}else{
+		// sacar el id del inodo del directiorio predecesor
+		int z;
+		for(z=0; z<MAX_NUMBER_FILES&&(strcmp(aux_preDir, preDir[z])!=0); z++);
+		suDir[z]--;
+	}
+
 
 	// encontrar el id del directorio y eliminarlo del inodo correspondiente
 	int i;
@@ -481,6 +606,7 @@ int rmDir(char *path)
 	}
 
 	//Si no encuentra el fichero, devuelve error.
+	printf("Directory no exists\n");
 	return -1;
 }
 
@@ -490,15 +616,19 @@ int rmDir(char *path)
  */
 int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 {
+	// comprobar la ruta
 	if(strcmp(path,"/")!=0){
-		if(checkPath(path)!=0)	return -1;
+		if(checkPath(path)!=0){
+			printf("error checkPath\n");
+			return -2;
+		}
 	}
 
 	// encontrar el nombre del directorio de la ruta
 	char *dirName;
-	if(strcmp(path,"/")==0){
+	if(strcmp(path,"/")==0){	// si es raiz le damos '-'
 		dirName ="-";
-	}else{
+	}else{	// si no es raiz sacamos el ultimo elemento de /
 		char *pch;
 		char line[256];
 
@@ -510,8 +640,26 @@ int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 		}
 	}
 
-	// pasar los nombres de los directorios y id a las variables correspondientes
+
+	// comprobar si existe el directorio
+	int fd = -1;
 	int i;
+	for(i = 0; i < MAX_NUMBER_FILES; i++) {
+		//Se busca el fichero y se devuelve su posición
+		if(strcmp(sb.inodes[i].name, dirName) == 0) {
+			fd = i;
+			break;
+		}
+	}
+
+	//Si no existe el directorio, devuelve error
+	if (fd == -1){
+		printf("Directory not exist\n");
+		return -1;
+	}
+
+
+	// pasar los nombres de los directorios y id a las variables correspondientes
 	int index = 0;
 	for(i=0; i<MAX_NUMBER_FILES; i++){
 		if(strcmp(preDir[i],dirName) == 0){
@@ -578,6 +726,12 @@ int checkFile(char* path){
 		}
 	}
 
+	// Comprobar si el fichero a crear tiene mas de 32 caracteres de longitud
+	if(strlen(fileWay[maxLevel-1])>MAX_NAME_LENGHT){
+		printf("File name has more than 32 characters\n");
+		return -2;
+	}
+
 
 	// Ahora comprobamos si existen ficheros con el mismo nombre
 	for(i = 0; i < MAX_NUMBER_FILES; i++) {
@@ -598,11 +752,11 @@ int checkFile(char* path){
 	// guardar las variables auxiliares globales para luego actualizarlas en la funcion mkDir
 	aux_level = maxLevel-1;	// el nivel del directorio que queremos crear ahora
 	if(maxLevel>=2){
-		aux_preDir = fileWay[maxLevel-2];
+		strcpy(aux_preDir,fileWay[maxLevel-2]);
 	}else{
-		aux_preDir = "-";	// si es en directorio raiz le asignamos su predecesor '-'
+		strcpy(aux_preDir,"-");	// si es en directorio raiz le asignamos su predecesor '-'
 	}
-	aux_fileName = fileWay[maxLevel-1];	// el nombre es el ultimo string se se saca
+	strcpy(aux_fileName,fileWay[maxLevel-1]);	// el nombre es el ultimo string se se saca
 	return 0;
 }
 
@@ -610,7 +764,7 @@ int checkFile(char* path){
 int checkDir(char* path){
 	if(path[0] != '/'||path[strlen(path)-1]=='/'||strlen(path)>99){
 		printf("path incorrect format\n");
-		return -1;
+		return -2;
 	}
 
 
@@ -647,10 +801,17 @@ int checkDir(char* path){
 			for(i=0; i<maxLevel-1; i++){
 				if(routeExisted[i]!=1){
 					printf("Directory does not exist\n");
-					return -1;
+					return -2;
 				}
 
 			}
+		}
+
+
+		// Comprobar si el directorio a crear tiene mas de 32 caracteres de longitud
+		if(strlen(fileWay[maxLevel-1])>MAX_NAME_LENGHT){
+			printf("Directory name has more than 32 characters\n");
+			return -2;
 		}
 
 	// Comprobar si existe un fichero o directorio con el mismo nombre
@@ -666,16 +827,16 @@ int checkDir(char* path){
 	// guardar las variables auxiliares globales para luego actualizarlas en la funcion mkDir
 	aux_level = maxLevel-1;	// el nivel del directorio que queremos crear ahora
 	if(maxLevel>=2){
-		aux_preDir = fileWay[maxLevel-2];
+		strcpy(aux_preDir,fileWay[maxLevel-2]);
 	}else{
-		aux_preDir = "-";	// si es en directorio raiz le asignamos su predecesor '-'
+		strcpy(aux_preDir, "-");	// si es en directorio raiz le asignamos su predecesor '-'
 	}
-	aux_fileName = fileWay[maxLevel-1];	// el nombre es el ultimo string se se saca
+	strcpy(aux_fileName, fileWay[maxLevel-1]);	// el nombre es el ultimo string se se saca
 	return 0;
 }
 
 int checkPath(char *path){
-	if(path[0] != '/'||path[strlen(path)-1]=='/'||(strlen(path))>132){
+	if(path[0] != '/'||path[strlen(path)-1]=='/'||(strlen(path))>99){
 		printf("path incorrect format\n");
 		return -2;
 	}
@@ -713,11 +874,20 @@ int checkPath(char *path){
 		// si no existe el directorio da error
 		for(i=0; i<maxLevel-1; i++){
 			if(routeExisted[i]!=1){
-				printf("Directory does not exist\n");
+				printf("Path does not exist\n");
 				return -2;
 			}
 
 		}
 	}
+
+	aux_level = maxLevel-1;	// el nivel del directorio que queremos crear ahora
+	if(maxLevel>=2){
+		strcpy(aux_preDir, fileWay[maxLevel-2]);
+	}else{
+		strcpy(aux_preDir , "-");	// si es en directorio raiz le asignamos su predecesor '-'
+	}
+	strcpy(aux_fileName , fileWay[maxLevel-1]);	// el nombre es el ultimo string se se saca
+
 	return 0;
 }
