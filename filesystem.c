@@ -157,6 +157,7 @@ int createFile(char *path)
  */
 int removeFile(char *path)
 {
+	if(checkPath(path)!=0)	return -1;
 	// sacar el nombre el fichero quitando su ruta
 	char *pch;
 	char line[132];  // where we will put a copy of the input
@@ -191,7 +192,7 @@ int removeFile(char *path)
 	}
 
 	//Si no encuentra el fichero, devuelve error.
-	return -2;
+	return -1;
 }
 
 /*
@@ -200,6 +201,7 @@ int removeFile(char *path)
  */
 int openFile(char *path)
 {
+	if(checkPath(path)!=0)	return -1;
 	// sacar el nombre el fichero quitando su ruta
 	char *pch;
 	char line[256];  // where we will put a copy of the input
@@ -397,7 +399,7 @@ int lseekFile(int fd, long offset, int whence)
  */
 int mkDir(char *path)
 {
-
+	if(checkPath(path)!=0)	return -1;
 	// comprueba las condicionanes a la hora de crear el fichero
 	if(checkDir(path) == -1){
 		printf("error mkDir\n");
@@ -445,6 +447,7 @@ int mkDir(char *path)
  */
 int rmDir(char *path)
 {
+	if(checkPath(path)!=0)	return -1;
 	// encontrar el nombre del directorio
 	char *pch;
 	char line[256];  // where we will put a copy of the input
@@ -487,6 +490,10 @@ int rmDir(char *path)
  */
 int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 {
+	if(strcmp(path,"/")!=0){
+		if(checkPath(path)!=0)	return -1;
+	}
+
 	// encontrar el nombre del directorio de la ruta
 	char *dirName;
 	if(strcmp(path,"/")==0){
@@ -664,5 +671,53 @@ int checkDir(char* path){
 		aux_preDir = "-";	// si es en directorio raiz le asignamos su predecesor '-'
 	}
 	aux_fileName = fileWay[maxLevel-1];	// el nombre es el ultimo string se se saca
+	return 0;
+}
+
+int checkPath(char *path){
+	if(path[0] != '/'||path[strlen(path)-1]=='/'||(strlen(path))>132){
+		printf("path incorrect format\n");
+		return -2;
+	}
+
+
+	char line[132];
+	strcpy(line, path);	// guardamos el path en line ya que lo vamos a modificar
+	char *fileWay[4];	// array de 4 dimensiones para guardar los 4 niveles de ficheros/directorios
+	char *pch;	// variable para guardar string entre '/'
+	int maxLevel=0;	// variable para guardar el nivel donde se encuentra el fichero
+
+	pch = strtok(line,"/"); // sacar el primer string después de '/'
+	do{
+		fileWay[maxLevel] = pch;	// array para guardar los string que va sacando
+		pch = strtok (NULL, "/");	// sacar los string consecutivos hasta agotar los '/'
+		maxLevel++;	// aumentar el nuvel
+	}while(pch != NULL&&maxLevel<4);
+
+
+
+	// comprobar si existe la ruta
+	int i,j;
+	if(maxLevel>=2){	// procedemos a comprobar la existencia de la ruta solo si hay hay mas de 2 niveles
+
+		int routeExisted[maxLevel-1];	// array para almacenar la ruta
+		for(j=0; j<=maxLevel-2; j++){
+			for(i = 0; i < MAX_NUMBER_FILES; i++) {
+				if((strcmp(sb.inodes[i].name, fileWay[j]) == 0)&&(sb.inodes[i].type==DIR)&&(levels[i]==(j))){
+					//el directorio existe si encontramos un inodo con mismo nombre, de tipo directorio y en el mismo nivel
+					routeExisted[j] = 1;
+				}
+			}
+		}
+
+		// si no existe el directorio da error
+		for(i=0; i<maxLevel-1; i++){
+			if(routeExisted[i]!=1){
+				printf("Directory does not exist\n");
+				return -2;
+			}
+
+		}
+	}
 	return 0;
 }

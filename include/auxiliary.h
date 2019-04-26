@@ -10,3 +10,5 @@
 int checkFile(char* path);
 
 int checkDir(char* path);
+
+int checkPath(char* path);
