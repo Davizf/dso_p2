@@ -451,6 +451,7 @@ int lseekFile(int fd, long offset, int whence)
 		return -1;
 	}
 
+	
 	//Si se desea cambiar el puntero fuera del archivo, devuelve error.
 	if (whence == FS_SEEK_CUR &&
 		(sb.inodes[fd].pointer + offset > MAX_NUMBER_FILES-1 || sb.inodes[fd].pointer + offset < 0)){
