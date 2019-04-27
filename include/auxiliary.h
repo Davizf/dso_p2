@@ -7,8 +7,8 @@
  */
 
 
-int checkFile(char* path);
+int checkFile(char* path);  // Comprobar las condiciones para crear el fichero
 
-int checkDir(char* path);
+int checkDir(char* path); // Comprobar las condiciones para crear el directorio
 
-int checkPath(char* path);
+int checkPath(char* path);  // Comprobar si la ruta es válida
