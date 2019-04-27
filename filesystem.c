@@ -175,6 +175,7 @@ int createFile(char *path)
 	strcpy(preDir[i],aux_preDir);
 	strcpy(sb.inodes[i].preDir,aux_preDir);
 
+	printf("*** File named %s created with fd %i in level %i with predecesor Directoy %s\n ", aux_fileName, i, aux_level, aux_preDir);
 	// si va todo bien devuelve 0
 	return 0;
 }
@@ -226,6 +227,7 @@ int removeFile(char *path)
 			sb.inodes[i].level = 0;
 			strcpy(preDir[i],"");
 			strcpy(sb.inodes[i].preDir,"");
+			printf("*** File named %s with fd %i in level %i with predecesor Directoy %s is removed\n ", aux_fileName, i, aux_level, aux_preDir);
 			return 0;
 		}
 		// si no encuentra el fichero pasa a la siguiente posicion
@@ -285,6 +287,8 @@ int openFile(char *path)
 	if (lseekFile(fd, FS_SEEK_BEGIN, 0) != 0) return -1;
 	// Si todo es correcto, se devuelve el descriptor del fichero abierto
 
+	printf("*** File named %s with fd %i in level %i with predecesor Directoy %s is opened now\n ", aux_fileName, fd, aux_level, aux_preDir);
+
 	return fd;
 }
 
@@ -309,6 +313,7 @@ int closeFile(int fd)
 	// Si el superbloque que se quiere cerrar está abierto se cierra.
 	fileState[fd] = CLOSED;
 
+	printf("*** File named %s with fd %i in level %i with predecesor Directoy %s is closed now\n ", iNodeNames[fd], fd, levels[fd], preDir[fd]);
 	//Si la ejecución es correcta, se devuelve 0.
 	return 0;
 
@@ -360,6 +365,7 @@ int readFile(int fd, void *buffer, int numBytes)
 	// Se almacenan los bytes solicitados del fichero en el buffer
 	memmove(buffer, block, numBytes);
 
+	printf("*** File named %s read with fd %i in level %i with predecesor Directoy %s\n ", iNodeNames[fd], fd, levels[fd], preDir[fd]);
 	//Devuelve el número de Bytes leídos.
 	return numBytes;
 
@@ -421,6 +427,7 @@ int writeFile(int fd, void *buffer, int numBytes)
 		return -1;
 	}
 	//Devuelve el número de Bytes escritos.
+	printf("*** File named %s writed with fd %i in level %i with predecesor Directoy %s\n ", iNodeNames[fd], fd, levels[fd], preDir[fd]);
 	return numBytes;
 	/*************************************** End Student Code ***************************************/
 }
@@ -466,6 +473,8 @@ int lseekFile(int fd, long offset, int whence)
 			sb.inodes[fd].pointer = MAX_FILE_SIZE-1;
 			break;
 	}
+
+	printf("*** File with fd %i named %s's pointer is now %i\n ", fd, iNodeNames[fd], sb.inodes[fd].pointer);
 	//Si la ejecucíón es correcta, se devuelve 0.
 	return 0;
 	/*************************************** End Student Code ***************************************/
@@ -546,7 +555,7 @@ int mkDir(char *path)
 	//printf("preDir is %s\n", preDir[i]);
 
 	// si va todo bien devuelve 0
-
+	printf("*** Directory named %s created with fd %i in level %i with predecesor Directoy %s\n ", aux_fileName, i, aux_level, aux_preDir);
 	return 0;
 	/*************************************** End Student Code ***************************************/
 }
@@ -600,6 +609,7 @@ int rmDir(char *path)
 			sb.inodes[i].level = 0;
 			strcpy(preDir[i],"");
 			strcpy(sb.inodes[i].preDir,"");
+			printf("*** Directory named %s with fd %i in level %i with predecesor Directoy %s is removed\n ", aux_fileName, i, aux_level, aux_preDir);
 			return 0;
 		}
 		position *= 2;
@@ -640,23 +650,26 @@ int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 		}
 	}
 
-
-	// comprobar si existe el directorio
-	int fd = -1;
 	int i;
-	for(i = 0; i < MAX_NUMBER_FILES; i++) {
-		//Se busca el fichero y se devuelve su posición
-		if(strcmp(sb.inodes[i].name, dirName) == 0) {
-			fd = i;
-			break;
+	if(strcmp(path,"/")!=0){
+		// comprobar si existe el directorio
+		int fd = -1;
+		for(i = 0; i < MAX_NUMBER_FILES; i++) {
+			//Se busca el fichero y se devuelve su posición
+			if(strcmp(sb.inodes[i].name, dirName) == 0) {
+				fd = i;
+				break;
+			}
+		}
+
+		//Si no existe el directorio, devuelve error
+		if (fd == -1){
+			printf("Directory not exist\n");
+			return -1;
 		}
 	}
 
-	//Si no existe el directorio, devuelve error
-	if (fd == -1){
-		printf("Directory not exist\n");
-		return -1;
-	}
+
 
 
 	// pasar los nombres de los directorios y id a las variables correspondientes
